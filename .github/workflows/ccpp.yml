@@ -13,10 +13,7 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/setup-python@v1
     - uses: BSFishy/meson-build@v1.0.1
-    - name: meson
-      run: meson . build
-    - name: build
-      run: cd build; ninja
-    - name: run tests
-      run: ninja test
+      with:
+	action: test
