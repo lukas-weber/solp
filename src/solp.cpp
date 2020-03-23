@@ -4,31 +4,28 @@
 
 namespace solp {
 
-result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints) {
-	Eigen::VectorXd obj = Eigen::Map<const Eigen::VectorXd>(objective.data(), objective.size());
-
-	Eigen::MatrixXd A(constraints.size(), obj.size());
-	Eigen::VectorXd b;
-
-	for(int i = 0; i < A.rows(); i++) {
-		A.row(i) = Eigen::Map<const Eigen::RowVectorXd>(constraints[i].coeff.data(), constraints[i].coeff.size());
-		b(i) = constraints[i].rhs;
+const char *exception::what() const noexcept {
+	switch(status) {
+	case type::rank_deficient:
+		return "constraint matrix does not have full row rank";
+	case type::infeasible:
+		return "constraints are incompatible/infeasible";
+	case type::unbounded:
+		return "problem is unbounded";
+	default:
+		return "invalid exception";
 	}
-
-	result r;
-	return r;
-
 }
 
+// find a basis for the column space of A
+// returns indices of linearly independent columns
 static std::vector<int> find_column_basis(Eigen::MatrixXd &A) {
-	auto &QR = A.colPivHouseholderQr();
-	auto &R = QR.matrixR().template triangularView<Eigen::Upper>();
+	auto QR = A.fullPivHouseholderQr();
+	auto &R = QR.matrixQR().template triangularView<Eigen::Upper>();
 	auto &P = QR.colsPermutation();
 
-	assert(QR.rank() == A.rows());
-
-	std::vector<int> basis(R.rows());
-	for(int i = 0; i < R.rows(); i++) {
+	std::vector<int> basis(QR.rank());
+	for(size_t i = 0; i < basis.size(); i++) {
 		for(int j = i; j < R.cols(); j++) {
 			if(R(i,j) != 0) {
 				basis[i] = P.indices()(j);
@@ -40,8 +37,33 @@ static std::vector<int> find_column_basis(Eigen::MatrixXd &A) {
 	return basis;
 }
 
-static result canonical_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b) {
-	assert(A.cols() > A.rows());
+// reorders the problem so that A starts with linearly independent columns.
+static std::vector<int> simplex_initialize(Eigen::VectorXd &objective, Eigen::MatrixXd &A) {
+	auto basis = find_column_basis(A);
+
+	if(static_cast<Eigen::Index>(basis.size()) != A.rows()) {
+		throw exception{exception::type::rank_deficient};
+	}
+
+	std::vector<int> idxs = basis;
+	for(int i = 0; i < A.cols(); i++) {
+		if(std::find(basis.begin(), basis.end(), i) == basis.end()) {
+			idxs.push_back(i);
+		}
+	}
+
+	auto Atmp = A;
+	auto objectivetmp = objective;
+	for(int i = 0; i < A.cols(); i++) {
+		A.col(i) = Atmp.col(idxs[i]);
+		objective(i) = objectivetmp(idxs[i]);
+	}
+	return idxs;
+}
+
+static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b) {
+	std::vector<int> idxs = simplex_initialize(objective, A);
+	assert(A.cols() >= A.rows());
 
 	int nb = A.rows();
 	int nn = A.cols()-A.rows();
@@ -51,13 +73,6 @@ static result canonical_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, 
 
 	Eigen::VectorXd sn(nn);
 	Eigen::VectorXd lambda(nn);
-
-	//assert(A.leftCols(nb).isApprox(Eigen::MatrixXd::Identity(nb,nb))); // problem canonical?
-
-	std::vector<int> idxs(A.cols());
-	for(size_t i = 0; i < idxs.size(); i++) {
-		idxs[i] = i;
-	}
 
 
 	while(true) {
@@ -91,9 +106,8 @@ static result canonical_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, 
 			}
 		}
 		if(p < 0) {
-			throw std::runtime_error("problem unbounded");
+			throw exception{exception::type::unbounded};
 		}
-		std::cout << p << "<-" << q << "\n";
 
 		std::swap(idxs[p], idxs[q]);
 		A.col(p).swap(A.col(q));
@@ -104,9 +118,26 @@ static result canonical_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, 
 	res.x.resize(A.cols());
 	for(int i = 0; i < nb; i++) {
 		res.x[idxs[i]] = xb[i];
-		//res.basis[i] = idxs[i];	
+		if(xb[i] < 0) {
+			throw exception{exception::type::infeasible};
+		}
 	}
 	return res;
+}
+
+result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints) {
+	Eigen::VectorXd obj = Eigen::Map<const Eigen::VectorXd>(objective.data(), objective.size());
+
+	Eigen::MatrixXd A(constraints.size(), obj.size());
+	Eigen::VectorXd b(constraints.size());
+
+	for(int i = 0; i < A.rows(); i++) {
+		A.row(i) = Eigen::Map<const Eigen::RowVectorXd>(constraints[i].coeff.data(), constraints[i].coeff.size());
+		b(i) = constraints[i].rhs;
+	}
+
+	return revised_simplex(obj, A, b);
+
 }
 
 }
