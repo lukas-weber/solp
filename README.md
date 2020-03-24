@@ -69,12 +69,10 @@ The code to solve this challenging optimization problem with solp would be
 #include <solp.h>
 
 int main(int argc, char **argv) {
-    const double pCoff = 0.2, pCook = 0.5;
-    const double vCook = 0.5;
-    const double B = 20;
-    const double V = 15;
-
+    const double pCoff = 0.2, pCook = 0.5, vCook = 0.5;
+    const double B = 20, V = 15;
     const double aCoff = 2, aCook = 5.5;
+    
     std::vector<double> objective = {-aCoff, -aCook, 0};
     std::vector<solp::constraint> constraints = {
         {{pCoff, pCook, 0}, B},
