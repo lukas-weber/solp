@@ -55,7 +55,8 @@ struct constraint {
 //
 // If there is no solution or the problem is unbounded, a solp::exception is thrown.
 //
-result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints, const options &opts=options{});
+result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints,
+             const options &opts = options{});
 
 }
 #endif // solp_h_INCLUDED
