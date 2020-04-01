@@ -64,9 +64,9 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int q{-1};
 		int minidx = A.cols() + 1;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < -opts.tolerance && sn(i) < minidx) {
+			if(sn(i) < -opts.tolerance && colperm[nb+i] < minidx) {
 				q = nb + i;
-				minidx = sn(i); //colperm[q];
+				minidx = colperm[q];
 			}
 		}
 
