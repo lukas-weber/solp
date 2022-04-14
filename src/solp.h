@@ -11,6 +11,7 @@ public:
 		rank_deficient,
 		infeasible,
 		unbounded,
+		input_format,
 	};
 
 	explicit exception(type t) : status{t} {}
@@ -39,7 +40,15 @@ struct result {
 //
 struct constraint {
 	std::vector<double> coeff;
-	double rhs;
+	double rhs{};
+};
+
+// constraints can also be given in sparse form with coeff denoting the nonzero coefficients at the
+// indices given by idx.
+struct constraint_sparse {
+	std::vector<double> coeff;
+	std::vector<int> idx;
+	double rhs{};
 };
 
 // solve the linear programming problem
@@ -58,5 +67,8 @@ struct constraint {
 result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints,
              const options &opts = options{});
 
+// sparse version
+result solve(const std::vector<double> &objective,
+             const std::vector<constraint_sparse> &constraints, const options &opts = options{});
 }
 #endif // solp_h_INCLUDED
