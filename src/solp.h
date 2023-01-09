@@ -1,8 +1,8 @@
 #ifndef solp_h_INCLUDED
 #define solp_h_INCLUDED
 
-#include <vector>
 #include <stdexcept>
+#include <vector>
 namespace solp {
 
 class exception : public std::exception {
@@ -13,16 +13,15 @@ public:
 		unbounded,
 	};
 
-	explicit exception(type t) : status{t} {
-	}
+	explicit exception(type t) : status{t} {}
 
 	type status;
 
 	virtual const char *what() const noexcept override;
+
 private:
 	constexpr const char *msg(type t);
 };
-
 
 struct result {
 	std::vector<double> x;
@@ -31,7 +30,7 @@ struct result {
 // constraint represents an equality constraint on the variables x
 //
 //    coeff * x = rhs
-//    
+//
 struct constraint {
 	std::vector<double> coeff;
 	double rhs;
@@ -49,9 +48,8 @@ struct constraint {
 // by shifting x and introducing additional slack variables.
 //
 // If there is no solution or the problem is unbounded, a solp::exception is thrown.
-// 
+//
 result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints);
 
 }
 #endif // solp_h_INCLUDED
-

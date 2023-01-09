@@ -1,6 +1,6 @@
 #include "solp.h"
-#include <iostream>
 #include <Eigen/Dense>
+#include <iostream>
 
 namespace solp {
 
@@ -27,7 +27,7 @@ static std::vector<int> find_column_basis(Eigen::MatrixXd &A) {
 	std::vector<int> basis(QR.rank());
 	for(size_t i = 0; i < basis.size(); i++) {
 		for(int j = i; j < R.cols(); j++) {
-			if(R(i,j) != 0) {
+			if(R(i, j) != 0) {
 				basis[i] = P.indices()(j);
 				break;
 			}
@@ -66,7 +66,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 	assert(A.cols() >= A.rows());
 
 	int nb = A.rows();
-	int nn = A.cols()-A.rows();
+	int nn = A.cols() - A.rows();
 
 	Eigen::VectorXd xb(nb);
 	Eigen::VectorXd d(nb);
@@ -74,35 +74,34 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 	Eigen::VectorXd sn(nn);
 	Eigen::VectorXd lambda(nn);
 
-
 	while(true) {
 		lambda = A.leftCols(nb).transpose().colPivHouseholderQr().solve(objective.head(nb));
-		sn = objective.tail(nn) - A.rightCols(nn).transpose()*lambda;
+		sn = objective.tail(nn) - A.rightCols(nn).transpose() * lambda;
 
 		int q{-1};
-		int minidx = A.cols()+1;
+		int minidx = A.cols() + 1;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < 0 && idxs[nb+i] < minidx) {
+			if(sn(i) < 0 && idxs[nb + i] < minidx) {
 				q = nb + i;
 				minidx = idxs[q];
 			}
 		}
 
-		auto Bfac = A.leftCols(nb).colPivHouseholderQr();		
-		xb = Bfac.solve(b.head(nb)); 
-		
+		auto Bfac = A.leftCols(nb).colPivHouseholderQr();
+		xb = Bfac.solve(b.head(nb));
+
 		if(q < 0) {
 			break;
 		}
 
 		d = Bfac.solve(A.col(q));
-		
+
 		int p = -1;
-		double rmin = INFINITY; 
+		double rmin = INFINITY;
 		for(int i = 0; i < nb; i++) {
-			if(d(i) > 0 && xb(i)/d(i) < rmin) {
+			if(d(i) > 0 && xb(i) / d(i) < rmin) {
 				p = i;
-				rmin = xb(i)/d(i);
+				rmin = xb(i) / d(i);
 			}
 		}
 		if(p < 0) {
@@ -132,12 +131,12 @@ result solve(const std::vector<double> &objective, const std::vector<constraint>
 	Eigen::VectorXd b(constraints.size());
 
 	for(int i = 0; i < A.rows(); i++) {
-		A.row(i) = Eigen::Map<const Eigen::RowVectorXd>(constraints[i].coeff.data(), constraints[i].coeff.size());
+		A.row(i) = Eigen::Map<const Eigen::RowVectorXd>(constraints[i].coeff.data(),
+		                                                constraints[i].coeff.size());
 		b(i) = constraints[i].rhs;
 	}
 
 	return revised_simplex(obj, A, b);
-
 }
 
 }
