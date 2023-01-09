@@ -7,13 +7,18 @@ namespace solp {
 
 using SparseMatrix = Eigen::SparseMatrix<double>;
 
-// Type definition to provide a QR Decomposition irrespective for both sparse and dense matrices.
+// Type definitions to provide QR/LU decompositions for both sparse and dense matrices.
 // Eigen does not have something like this out of the box, as far as i know.
 template<typename Matrix>
 using QRDecomp =
     typename std::conditional_t<std::is_same_v<Matrix, SparseMatrix>,
                                 Eigen::SparseQR<SparseMatrix, Eigen::COLAMDOrdering<int>>,
                                 Eigen::ColPivHouseholderQR<Matrix>>;
+template<typename Matrix>
+using LUDecomp =
+    typename std::conditional_t<std::is_same_v<Matrix, SparseMatrix>,
+                                Eigen::SparseLU<SparseMatrix, Eigen::COLAMDOrdering<int>>,
+                                Eigen::PartialPivLU<Matrix>>;
 
 const char *exception::what() const noexcept {
 	switch(status) {
@@ -73,7 +78,8 @@ static result revised_simplex(Eigen::VectorXd &objective, Matrix &A, const Eigen
 	Eigen::VectorXd lambda(nn);
 
 	while(true) {
-		lambda = QRDecomp<Matrix>(A.leftCols(nb).transpose()).solve(objective.head(nb));
+		auto LU = LUDecomp<Matrix>(A.leftCols(nb));
+		lambda = LU.transpose().solve(objective.head(nb));
 		sn = objective.tail(nn) - A.rightCols(nn).transpose() * lambda;
 
 		int q{-1};
@@ -85,14 +91,13 @@ static result revised_simplex(Eigen::VectorXd &objective, Matrix &A, const Eigen
 			}
 		}
 
-		auto Bfac = QRDecomp<Matrix>(A.leftCols(nb));
-		xb = Bfac.solve(b);
+		xb = LU.solve(b);
 
 		if(q < 0) {
 			break;
 		}
 
-		d = Bfac.solve(A.col(q));
+		d = LU.solve(A.col(q));
 
 		int p = -1;
 		double rmin = INFINITY;
