@@ -48,10 +48,6 @@ def print_cpp_tests(outfile, cases):
             std::vector<double> c;
 
             '''.format(**case))
-            if case['type'] == 'valid':
-                f.write('''Eigen::VectorXd sol({n});
-                Eigen::VectorXd resx({n});
-                '''.format(**case))
             
             for n in range(case['N']):
                 A, b, c, x = lpgen(case['m'], case['n'], case['type'])

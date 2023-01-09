@@ -192,7 +192,6 @@ result solve(const std::vector<double> &objective,
              const std::vector<constraint_sparse> &constraints, const options &opts) {
 	SparseMatrix A(constraints.size(), constraints.size() + objective.size());
 	Eigen::VectorXd b(constraints.size());
-	Eigen::VectorXd presolve_obj = Eigen::VectorXd::Zero(A.cols());
 
 	std::vector<Eigen::Triplet<double>> triplets;
 	triplets.reserve(A.rows() * 5);

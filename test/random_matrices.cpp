@@ -9,8 +9,6 @@ TEST_CASE("random matrices") {
 		std::vector<solp::constraint> A;
 		std::vector<double> c;
 
-		Eigen::VectorXd sol(4);
-		Eigen::VectorXd resx(4);
 		A = {{{0.44386323274542566, 0.33367432737426683, 1.4940790731576061, -0.20515826376580087},
 		      0.8644361988595057},
 		     {{0.31306770165090136, -0.8540957393017248, -2.5529898158340787, 0.6536185954403606},
@@ -178,8 +176,6 @@ TEST_CASE("random matrices") {
 		std::vector<solp::constraint> A;
 		std::vector<double> c;
 
-		Eigen::VectorXd sol(5);
-		Eigen::VectorXd resx(5);
 		A = {{{0.28219757475842266, -0.840083656846994, -0.9799709936692849, 0.27220219464129114,
 		       1.1494406231346521},
 		      0.3053993216030181},
@@ -666,8 +662,6 @@ TEST_CASE("random matrices") {
 		std::vector<solp::constraint> A;
 		std::vector<double> c;
 
-		Eigen::VectorXd sol(20);
-		Eigen::VectorXd resx(20);
 		A = {
 		    {{-0.668168392414731,    0.33833954406441624,  -1.1891311720915034,
 		      -0.020724087806338262, 0.36009689498953656,  1.0823883437261015,
