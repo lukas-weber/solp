@@ -66,7 +66,7 @@ def print_cpp_tests(outfile, cases):
 
                     if case['type'] == 'valid':
                         f.write('''res = solp::solve(c, {A});
-                        CHECK_THAT(res.x, Catch::Matchers::Approx(std::vector{{{solution}}}).margin(1e-10));
+                        CHECK_THAT(res.x, Catch::Matchers::Approx(std::vector<double>{{{solution}}}).margin(1e-10));
                         '''.format(A = A, solution = eigen_comma(x)))
                     elif case['type'] == 'unbounded':
                         f.write('''CHECK_THROWS_MATCHES(solp::solve(c, {A}), solp::exception, MatchSolpException(solp::exception::type::unbounded));
