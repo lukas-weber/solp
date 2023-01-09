@@ -64,9 +64,9 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int q{-1};
 		int minidx = A.cols() + 1;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < -opts.tolerance && colperm[nb + i] < minidx) {
+			if(sn(i) < -opts.tolerance && sn(i) < minidx) {
 				q = nb + i;
-				minidx = colperm[q];
+				minidx = sn(i); //colperm[q];
 			}
 		}
 
@@ -82,11 +82,13 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int p = -1;
 		double rmin = INFINITY;
 		for(int i = 0; i < nb; i++) {
-			if(d(i) > 0 && xb(i) / d(i) < rmin) {
+
+			if(d(i) > opts.tolerance && xb(i) / d(i) < rmin) {
 				p = i;
 				rmin = xb(i) / d(i);
 			}
 		}
+		
 		if(p < 0) {
 			throw exception{exception::type::unbounded};
 		}
