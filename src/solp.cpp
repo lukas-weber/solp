@@ -17,52 +17,34 @@ const char *exception::what() const noexcept {
 	}
 }
 
-// find a basis for the column space of A
-// returns indices of linearly independent columns
-static std::vector<int> find_column_basis(Eigen::MatrixXd &A) {
-	auto QR = A.fullPivHouseholderQr();
-	auto &R = QR.matrixQR().template triangularView<Eigen::Upper>();
-	auto &P = QR.colsPermutation();
+static Eigen::MatrixXd drop_slacks(std::vector<int> &colperm, Eigen::MatrixXd &A) {
+	Eigen::MatrixXd Anew(A.rows(), A.cols() - A.rows());
 
-	std::vector<int> basis(QR.rank());
-	for(size_t i = 0; i < basis.size(); i++) {
-		for(int j = i; j < R.cols(); j++) {
-			if(R(i, j) != 0) {
-				basis[i] = P.indices()(j);
-				break;
+	int j = 0;
+	for(int i = 0; i < A.cols(); i++) {
+		if(colperm[i] < A.rows()) {
+			if(i < A.rows()) {
+				// slack cannot be dropped
+				throw exception{exception::type::infeasible};
 			}
+		} else {
+			Anew.col(j) = A.col(i);
+			colperm[j] = colperm[i] - A.rows();
+			j++;
 		}
 	}
-
-	return basis;
+	colperm.resize(Anew.cols());
+	assert(j == Anew.cols());
+	return Anew;
 }
 
-// reorders the problem so that A starts with linearly independent columns.
-static std::vector<int> simplex_initialize(Eigen::VectorXd &objective, Eigen::MatrixXd &A) {
-	auto basis = find_column_basis(A);
-
-	if(static_cast<Eigen::Index>(basis.size()) != A.rows()) {
-		throw exception{exception::type::rank_deficient};
-	}
-
-	std::vector<int> idxs = basis;
-	for(int i = 0; i < A.cols(); i++) {
-		if(std::find(basis.begin(), basis.end(), i) == basis.end()) {
-			idxs.push_back(i);
-		}
-	}
-
-	auto Atmp = A;
-	auto objectivetmp = objective;
-	for(int i = 0; i < A.cols(); i++) {
-		A.col(i) = Atmp.col(idxs[i]);
-		objective(i) = objectivetmp(idxs[i]);
-	}
-	return idxs;
-}
-
-static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b) {
-	std::vector<int> idxs = simplex_initialize(objective, A);
+// In the convention here, the current corner of the simplex is given by
+// xb = B^-1 b
+//
+// where B is A.leftCols(nb). The algorithm assumes that we start in a corner in the positive cone (xb >= 0).
+//
+static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b,
+                              std::vector<int> &colperm) {
 	assert(A.cols() >= A.rows());
 
 	int nb = A.rows();
@@ -81,14 +63,14 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int q{-1};
 		int minidx = A.cols() + 1;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < 0 && idxs[nb + i] < minidx) {
+			if(sn(i) < 0 && colperm[nb + i] < minidx) {
 				q = nb + i;
-				minidx = idxs[q];
+				minidx = colperm[q];
 			}
 		}
 
 		auto Bfac = A.leftCols(nb).colPivHouseholderQr();
-		xb = Bfac.solve(b.head(nb));
+		xb = Bfac.solve(b);
 
 		if(q < 0) {
 			break;
@@ -108,7 +90,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 			throw exception{exception::type::unbounded};
 		}
 
-		std::swap(idxs[p], idxs[q]);
+		std::swap(colperm[p], colperm[q]);
 		A.col(p).swap(A.col(q));
 		std::swap(objective(p), objective(q));
 	}
@@ -116,7 +98,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 	result res;
 	res.x.resize(A.cols());
 	for(int i = 0; i < nb; i++) {
-		res.x[idxs[i]] = xb[i];
+		res.x[colperm[i]] = xb[i];
 		if(xb[i] < 0) {
 			throw exception{exception::type::infeasible};
 		}
@@ -124,19 +106,48 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 	return res;
 }
 
+// The method used here is a two-phase revised simplex method. In the presolve step, slack variables
+// are introduced so we are sure we start from a feasible solution. Then, we try to find a solution where
+// they are zero using LP.
+//
+// If it exists, we can drop them and start from that solution to solve our original objective.
+// 
 result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints) {
-	Eigen::VectorXd obj = Eigen::Map<const Eigen::VectorXd>(objective.data(), objective.size());
+	Eigen::VectorXd obj(objective.size());
 
-	Eigen::MatrixXd A(constraints.size(), obj.size());
+	Eigen::MatrixXd A(constraints.size(), constraints.size() + obj.size());
 	Eigen::VectorXd b(constraints.size());
+	A.leftCols(A.rows()) = Eigen::MatrixXd::Identity(A.rows(), A.rows());
+	Eigen::VectorXd presolve_obj = Eigen::VectorXd::Zero(A.cols());
 
 	for(int i = 0; i < A.rows(); i++) {
-		A.row(i) = Eigen::Map<const Eigen::RowVectorXd>(constraints[i].coeff.data(),
-		                                                constraints[i].coeff.size());
+		A.rightCols(obj.size()).row(i) = Eigen::Map<const Eigen::RowVectorXd>(
+		    constraints[i].coeff.data(), constraints[i].coeff.size());
 		b(i) = constraints[i].rhs;
+		presolve_obj(i) = 1;
+
+		if(b(i) < 0) {
+			A(i, i) *= -1;
+		}
 	}
 
-	return revised_simplex(obj, A, b);
+	if(A.rightCols(obj.size()).colPivHouseholderQr().rank() != A.rows()) {
+		throw exception{exception::type::rank_deficient};
+	}
+
+	std::vector<int> colperm(A.cols());
+	for(int i = 0; i < A.cols(); i++) {
+		colperm[i] = i;
+	}
+
+	revised_simplex(presolve_obj, A, b, colperm);
+
+	A = drop_slacks(colperm, A);
+	for(int i = 0; i < A.cols(); i++) {
+		obj[i] = objective[colperm[i]];
+	}
+
+	return revised_simplex(obj, A, b, colperm);
 }
 
 }
