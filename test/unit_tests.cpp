@@ -21,6 +21,31 @@ TEST_CASE("canonical problem") {
 	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
 }
 
+TEST_CASE("invalid input format") {
+	std::vector<double> objective = {1, 2, 3};
+	std::vector<solp::constraint> A = {
+	    {{1, 0, 3, 2}, 10},
+	    {{0, 1, 2}, 15},
+	};
+
+	CHECK_THROWS_MATCHES(solp::solve(objective, A), solp::exception,
+	                     MatchSolpException(solp::exception::type::input_format));
+
+	std::vector<solp::constraint_sparse> A2 = {
+	    {{1, 2, 3}, {1, 2}, 10},
+	};
+
+	CHECK_THROWS_MATCHES(solp::solve(objective, A2), solp::exception,
+	                     MatchSolpException(solp::exception::type::input_format));
+
+	std::vector<solp::constraint_sparse> A3 = {
+	    {{1, 2, 3}, {1, 2, 100}, 10},
+	};
+
+	CHECK_THROWS_MATCHES(solp::solve(objective, A3), solp::exception,
+	                     MatchSolpException(solp::exception::type::input_format));
+}
+
 TEST_CASE("basic infeasible") {
 	std::vector<double> objective = {-1, -1};
 
