@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 
+#include "helpers.h"
 #include "solp.cpp"
 
 TEST_CASE("canonical problem") {
@@ -15,8 +16,13 @@ TEST_CASE("canonical problem") {
 
 	Eigen::VectorXd x(5);
 	x << 5, 0, 0, 0, 5;
+	std::vector<double> sol = {5, 0, 0, 0, 5};
+
 	Eigen::Map<Eigen::VectorXd> xres(res.x.data(), 5);
-	REQUIRE(xres.isApprox(x));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
+
+	res = solp::solve(objective, convert_to_sparse(A));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
 }
 
 TEST_CASE("basic infeasible") {
@@ -27,12 +33,10 @@ TEST_CASE("basic infeasible") {
 		    {{1, 1}, -1},
 		};
 
-		CHECK_THROWS(solp::solve(objective, A));
-		try {
-			solp::solve(objective, A);
-		} catch(const solp::exception &e) {
-			CHECK(e.status == solp::exception::type::infeasible);
-		}
+		CHECK_THROWS_MATCHES(solp::solve(objective, A), solp::exception,
+		                     MatchSolpException(solp::exception::type::infeasible));
+		CHECK_THROWS_MATCHES(solp::solve(objective, convert_to_sparse(A)), solp::exception,
+		                     MatchSolpException(solp::exception::type::infeasible));
 	}
 
 	SECTION("empty region") {
@@ -41,13 +45,10 @@ TEST_CASE("basic infeasible") {
 		    {{1, 1}, 3},
 		};
 
-		CHECK_THROWS(solp::solve(objective, A));
-		try {
-			solp::solve(objective, A);
-		} catch(const solp::exception &e) {
-			e.what();
-			CHECK(e.status == solp::exception::type::rank_deficient);
-		}
+		CHECK_THROWS_MATCHES(solp::solve(objective, A), solp::exception,
+		                     MatchSolpException(solp::exception::type::rank_deficient));
+		CHECK_THROWS_MATCHES(solp::solve(objective, convert_to_sparse(A)), solp::exception,
+		                     MatchSolpException(solp::exception::type::rank_deficient));
 	}
 }
 
@@ -64,11 +65,12 @@ TEST_CASE("example problem") {
 	    {{0, vCook, 1}, V},
 	};
 
-	CHECK_NOTHROW(solp::solve(objective, constraints));
+	std::vector<double> sol = {25, 30, 0};
 	solp::result res = solp::solve(objective, constraints);
-	CHECK(res.x[0] == Approx(25));
-	CHECK(res.x[1] == Approx(30));
-	CHECK(res.x[2] == Approx(0));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
+
+	res = solp::solve(objective, convert_to_sparse(constraints));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
 }
 
 TEST_CASE("sse example") {
@@ -77,40 +79,75 @@ TEST_CASE("sse example") {
 
 	std::vector<double> objective = {1, 0, 0, 1, 0, 1};
 
+	std::vector<double> sol = {0.75, 0, 0, 0, 0, 0};
 	solp::result res = solp::solve(objective, constraints);
-	Eigen::VectorXd sol(6);
-	sol << 0.75, 0, 0, 0, 0, 0;
-	CHECK(sol.isApprox(Eigen::Map<Eigen::VectorXd>(res.x.data(), res.x.size())));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol).margin(1e-12));
+	solp::solve(objective, convert_to_sparse(constraints));
+	CHECK_THAT(res.x, Catch::Matchers::Approx(sol).margin(1e-12));
 }
 
 TEST_CASE("cycling") {
-	std::vector<double> obj = {1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0};
+	std::vector<double> obj = {1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
+	                           0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+	                           0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0};
 
-	
 	std::vector<solp::constraint> constraints = {
-	{{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 1.0},
-	{{0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 1.0},
-	{{0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 1.0},
-	{{0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 1.0},
-	{{0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 0.0},
-	{{0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0}, 0.0},
-	{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0}, 0.0},
-	{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0}, 0.0}};
+	    {{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+	      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	     1.0},
+	    {{0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0,
+	      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	     1.0},
+	    {{0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+	      1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	     1.0},
+	    {{0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+	      0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	     1.0},
+	    {{0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+	      0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	     0.0},
+	    {{0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+	      1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0},
+	     0.0},
+	    {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+	      0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0},
+	     0.0},
+	    {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+	      0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0},
+	     0.0}};
 
 	CHECK_NOTHROW(solp::solve(obj, constraints));
+	CHECK_NOTHROW(solp::solve(obj, convert_to_sparse(constraints)));
 }
 
 TEST_CASE("slack dropping") {
 	Eigen::MatrixXd A(2, 5);
 	A << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
 
-	std::vector<int> idxs1 = {1, 3, 2, 0, 4};
-	CHECK_THROWS(solp::drop_slacks(idxs1, A));
-	std::vector<int> idxs2 = {2, 3, 0, 4, 1};
-
-	auto Anew = solp::drop_slacks(idxs2, A);
 	Eigen::MatrixXd Acheck(2, 3);
 	Acheck << 1, 2, 4, 6, 7, 9;
-	CHECK(idxs2 == std::vector<int>{0, 1, 2});
-	CHECK(Acheck == Anew);
+
+	SECTION("dense") {
+		std::vector<int> idxs1 = {1, 3, 2, 0, 4};
+		std::vector<int> idxs2 = {2, 3, 0, 4, 1};
+		CHECK_THROWS_MATCHES(solp::drop_slacks(idxs1, A), solp::exception,
+		                     MatchSolpException(solp::exception::type::infeasible));
+
+		auto Anew = solp::drop_slacks(idxs2, A);
+		CHECK(idxs2 == std::vector<int>{0, 1, 2});
+		CHECK(Acheck == Anew);
+	}
+
+	SECTION("sparse") {
+		std::vector<int> idxs1 = {1, 3, 2, 0, 4};
+		std::vector<int> idxs2 = {2, 3, 0, 4, 1};
+		CHECK_THROWS_MATCHES(solp::drop_slacks<solp::SparseMatrix>(idxs1, A.sparseView()),
+		                     solp::exception,
+		                     MatchSolpException(solp::exception::type::infeasible));
+
+		solp::SparseMatrix Anew = solp::drop_slacks<solp::SparseMatrix>(idxs2, A.sparseView());
+		CHECK(idxs2 == std::vector<int>{0, 1, 2});
+		CHECK(Acheck == Eigen::MatrixXd(Anew));
+	}
 }
