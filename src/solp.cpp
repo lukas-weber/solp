@@ -62,11 +62,11 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		sn = objective.tail(nn) - A.rightCols(nn).transpose() * lambda;
 
 		int q{-1};
-		int minidx = A.cols() + 1;
+		double smin = INFINITY;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < -opts.tolerance && colperm[nb+i] < minidx) {
+			if(sn(i) < -opts.tolerance && sn[i] < smin) {
 				q = nb + i;
-				minidx = colperm[q];
+				smin = sn[i];
 			}
 		}
 
@@ -82,7 +82,6 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int p = -1;
 		double rmin = INFINITY;
 		for(int i = 0; i < nb; i++) {
-
 			if(d(i) > opts.tolerance && xb(i) / d(i) < rmin) {
 				p = i;
 				rmin = xb(i) / d(i);
