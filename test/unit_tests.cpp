@@ -12,13 +12,9 @@ TEST_CASE("canonical problem") {
 	    {{0, 1, 2, 5, 3}, 15},
 	};
 
-	auto res = solp::solve(objective, A);
-
-	Eigen::VectorXd x(5);
-	x << 5, 0, 0, 0, 5;
 	std::vector<double> sol = {5, 0, 0, 0, 5};
 
-	Eigen::Map<Eigen::VectorXd> xres(res.x.data(), 5);
+	auto res = solp::solve(objective, A);
 	CHECK_THAT(res.x, Catch::Matchers::Approx(sol));
 
 	res = solp::solve(objective, convert_to_sparse(A));
