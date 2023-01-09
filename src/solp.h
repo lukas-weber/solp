@@ -23,6 +23,12 @@ private:
 	constexpr const char *msg(type t);
 };
 
+// options contains optional parameters that influence the details of the underlying algorithm.
+struct options {
+	double tolerance{1e-12}; // absolute numerical tolerance on the infeasibility zero checks
+};
+
+// holds the result of the calculation. Further fields may be added in the future.
 struct result {
 	std::vector<double> x;
 };
@@ -49,7 +55,7 @@ struct constraint {
 //
 // If there is no solution or the problem is unbounded, a solp::exception is thrown.
 //
-result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints);
+result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints, const options &opts=options{});
 
 }
 #endif // solp_h_INCLUDED

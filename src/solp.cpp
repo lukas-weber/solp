@@ -44,7 +44,7 @@ static Eigen::MatrixXd drop_slacks(std::vector<int> &colperm, Eigen::MatrixXd &A
 // where B is A.leftCols(nb). The algorithm assumes that we start in a corner in the positive cone (xb >= 0).
 //
 static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b,
-                              std::vector<int> &colperm) {
+                              std::vector<int> &colperm, const options &opts) {
 	assert(A.cols() >= A.rows());
 
 	int nb = A.rows();
@@ -63,7 +63,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 		int q{-1};
 		int minidx = A.cols() + 1;
 		for(int i = 0; i < nn; i++) {
-			if(sn(i) < 0 && colperm[nb + i] < minidx) {
+			if(sn(i) < -opts.tolerance && colperm[nb + i] < minidx) {
 				q = nb + i;
 				minidx = colperm[q];
 			}
@@ -99,7 +99,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 	res.x.resize(A.cols());
 	for(int i = 0; i < nb; i++) {
 		res.x[colperm[i]] = xb[i];
-		if(xb[i] < 0) {
+		if(xb[i] < -opts.tolerance) {
 			throw exception{exception::type::infeasible};
 		}
 	}
@@ -112,7 +112,7 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 //
 // If it exists, we can drop them and start from that solution to solve our original objective.
 // 
-result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints) {
+result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints, const options &opts) {
 	Eigen::VectorXd obj(objective.size());
 
 	Eigen::MatrixXd A(constraints.size(), constraints.size() + obj.size());
@@ -140,14 +140,14 @@ result solve(const std::vector<double> &objective, const std::vector<constraint>
 		colperm[i] = i;
 	}
 
-	revised_simplex(presolve_obj, A, b, colperm);
+	revised_simplex(presolve_obj, A, b, colperm, opts);
 
 	A = drop_slacks(colperm, A);
 	for(int i = 0; i < A.cols(); i++) {
 		obj[i] = objective[colperm[i]];
 	}
 
-	return revised_simplex(obj, A, b, colperm);
+	return revised_simplex(obj, A, b, colperm, opts);
 }
 
 }
