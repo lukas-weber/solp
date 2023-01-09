@@ -1,5 +1,5 @@
 project('solp', 'cpp',
-        version : '0.2',
+        version : '0.2.1',
         license : 'MIT',
 	default_options : ['cpp_std=c++17'])
 
