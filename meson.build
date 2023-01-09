@@ -2,7 +2,7 @@ project('solp', 'cpp',
         version : '0.1',
         license : 'MIT')
 
-eigen_dep = dependency('eigen', fallback : ['eigen', 'eigen_dep'])
+eigen_dep = dependency('eigen3', fallback : ['eigen', 'eigen_dep'])
 
 subdir('src')
 

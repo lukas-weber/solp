@@ -2,13 +2,30 @@
 #define solp_h_INCLUDED
 
 #include <vector>
+#include <stdexcept>
 namespace solp {
+
+class exception : public std::exception {
+public:
+	enum class type {
+		rank_deficient,
+		infeasible,
+		unbounded,
+	};
+
+	explicit exception(type t) : status{t} {
+	}
+
+	type status;
+
+	virtual const char *what() const noexcept override;
+private:
+	constexpr const char *msg(type t);
+};
+
 
 struct result {
 	std::vector<double> x;
-
-	// used internally
-	std::vector<int> basis;
 };
 
 // constraint represents an equality constraint on the variables x
