@@ -1,6 +1,7 @@
 project('solp', 'cpp',
         version : '0.2',
-        license : 'MIT')
+        license : 'MIT',
+	default_options : ['cpp_std=c++17'])
 
 eigen_dep = dependency('eigen3', fallback : ['eigen', 'eigen_dep'])
 
