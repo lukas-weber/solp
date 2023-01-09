@@ -73,16 +73,13 @@ TEST_CASE("example problem") {
 
 TEST_CASE("sse example") {
 	std::vector<solp::constraint> constraints = {
-		{{1,1,1,0,0,0}, 0.75},
-		{{0,1,0,1,1,0}, 0},
-		{{0,0,1,0,1,1}, 0}
-	};
+	    {{1, 1, 1, 0, 0, 0}, 0.75}, {{0, 1, 0, 1, 1, 0}, 0}, {{0, 0, 1, 0, 1, 1}, 0}};
 
-	std::vector<double> objective = {1,0,0,1,0,1};
+	std::vector<double> objective = {1, 0, 0, 1, 0, 1};
 
 	solp::result res = solp::solve(objective, constraints);
 	Eigen::VectorXd sol(6);
-	sol << 0.75, 0,0,0,0,0;
+	sol << 0.75, 0, 0, 0, 0, 0;
 	CHECK(sol.isApprox(Eigen::Map<Eigen::VectorXd>(res.x.data(), res.x.size())));
 }
 

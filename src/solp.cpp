@@ -41,7 +41,8 @@ static Eigen::MatrixXd drop_slacks(std::vector<int> &colperm, Eigen::MatrixXd &A
 // In the convention here, the current corner of the simplex is given by
 // xb = B^-1 b
 //
-// where B is A.leftCols(nb). The algorithm assumes that we start in a corner in the positive cone (xb >= 0).
+// where B is A.leftCols(nb). The algorithm assumes that we start in a corner in the positive cone
+// (xb >= 0).
 //
 static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Eigen::VectorXd &b,
                               std::vector<int> &colperm, const options &opts) {
@@ -107,12 +108,13 @@ static result revised_simplex(Eigen::VectorXd &objective, Eigen::MatrixXd &A, Ei
 }
 
 // The method used here is a two-phase revised simplex method. In the presolve step, slack variables
-// are introduced so we are sure we start from a feasible solution. Then, we try to find a solution where
-// they are zero using LP.
+// are introduced so we are sure we start from a feasible solution. Then, we try to find a solution
+// where they are zero using LP.
 //
 // If it exists, we can drop them and start from that solution to solve our original objective.
-// 
-result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints, const options &opts) {
+//
+result solve(const std::vector<double> &objective, const std::vector<constraint> &constraints,
+             const options &opts) {
 	Eigen::VectorXd obj(objective.size());
 
 	Eigen::MatrixXd A(constraints.size(), constraints.size() + obj.size());
