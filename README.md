@@ -39,6 +39,57 @@ meson . build
 ninja
 ninja install
 ```
+## Example
+
+A very practical example comes from the field of coffee break planning. Assume the secretary has a budget `B` and needs to buy cookies and coffee for the next Friday. The cookie tin has volume `V`. This gives the following set of constraints:
+
+```
+pCoff nCoff + pCook nCook = B
+vCook nCook + vRest = V
+nCoff, nCook, vRest ≥ 0
+```
+where
+* `pCoff`,`pCook`: Coffee and cookie prices
+* `vCook`: Volume of a cookie
+
+and our variables are
+* `nCoff`,`nCook`: Cookie and coffee amounts
+* `vRest`: unused volume
+
+the last one is a *slack variable* that is used to encode the actual inequality constraint `vCook nCook ≤ V`.
+
+The secretary wants to maximize institute productivity `P` which can be empirically approximated by the linear function
+
+```
+P = aCoff nCoff + aCook nCook
+```
+
+The code to solve this challenging optimization problem with solp would be 
+```cpp
+#include <solp.h>
+
+int main(int argc, char **argv) {
+    const double pCoff = 0.2, pCook = 0.5;
+    const double vCook = 0.5;
+    const double B = 20;
+    const double V = 15;
+
+    const double aCoff = 2, aCook = 5.5;
+    std::vector<double> objective = {-aCoff, -aCook, 0};
+    std::vector<solp::constraint> constraints = {
+        {{pCoff, pCook, 0}, B},
+        {{0, vCook, 1}, V},
+    };
+    
+    solp::result res = solp::solve(objective, constraints);
+    
+    const double nCoff = res.x[0];
+    const double nCook = res.x[1];
+}
+
+```
+
+In the real world, of course workspace productivity is more complicated. There are multiple types of cookies, packing fractions and the coffee tin volume is also limited.
 
 ## Disclaimer
 I actually don’t know what I’m doing. Please don’t use this for nuclear power plants etc. ;)
