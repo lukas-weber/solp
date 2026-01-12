@@ -2,16 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
-    - uses: actions/setup-python@v16
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.x'
     - run: pip install meson ninja
@@ -19,7 +19,7 @@ jobs:
       env:
         CC: gcc
     - run: meson test -C build -v
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: Linux_Meson_Testlog
